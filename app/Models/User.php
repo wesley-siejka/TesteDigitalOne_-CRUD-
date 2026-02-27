@@ -49,4 +49,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function pessoaFisica()
+    {
+        return $this->hasOne(\App\Models\PessoaFisica::class);
+    }
+
+    public function pessoaJuridica()
+    {
+        return $this->hasOne(\App\Models\PessoaJuridica::class);
+    }
 }
