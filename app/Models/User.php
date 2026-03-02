@@ -25,6 +25,13 @@ class User extends Authenticatable
         'tipo',
         'nivel',
         'status',
+        'cep',
+        'logradouro',
+        'bairro',
+        'numero',
+        'complemento',
+        'estado',
+        'cidade',
     ];
 
     /**

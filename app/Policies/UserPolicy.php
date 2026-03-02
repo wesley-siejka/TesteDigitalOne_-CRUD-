@@ -7,7 +7,7 @@ use App\Models\User;
 class UserPolicy
 {
     /**
-     * Admin pode fazer tudo automaticamente
+     * Se for admin libera automaticamente todas as ações.
      */
     public function before(User $authUser)
     {
@@ -17,7 +17,7 @@ class UserPolicy
     }
 
     /**
-     * Usuário simples pode visualizar apenas o próprio perfil
+     * Permite visualizar apenas o próprio usuário.
      */
     public function view(User $authUser, User $targetUser)
     {
@@ -25,7 +25,7 @@ class UserPolicy
     }
 
     /**
-     * Usuário simples pode editar apenas o próprio perfil
+     * Permite editar apenas o próprio usuário.
      */
     public function update(User $authUser, User $targetUser)
     {
@@ -33,7 +33,7 @@ class UserPolicy
     }
 
     /**
-     * Apenas admin pode criar usuários
+     * Apenas administrador pode criar usuários.
      */
     public function create(User $authUser)
     {
@@ -41,18 +41,35 @@ class UserPolicy
     }
 
     /**
-     * Apenas admin pode deletar
+     * Apenas administrador pode deletar usuários.
      */
     public function delete(User $authUser, User $targetUser)
     {
-        return false; // admin já passa no before()
+        return false; // admin já é liberado no método before()
     }
 
     /**
-     * Ninguém pode alterar a própria permissão
+     * Apenas admin pode alterar permissões
      */
     public function changePermission(User $authUser, User $targetUser)
     {
         return $authUser->nivel === 'admin' && $authUser->id !== $targetUser->id;
+    }
+
+    /**
+     * Listagem de usuários.
+     * Somente admin (admin passa no before).
+     */
+    public function viewAny(User $authUser)
+    {
+        return false;
+    }
+
+    /**
+     * Reset de senha (admin apenas).
+     */
+    public function resetPassword(User $authUser, User $targetUser)
+    {
+        return false; // admin passa no before()
     }
 }

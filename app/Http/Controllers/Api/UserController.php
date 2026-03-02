@@ -9,6 +9,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
@@ -21,44 +23,77 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $authUser = $request->user();
+        $this->authorize('viewAny', User::class);
 
-        if ($authUser->nivel === 'admin') {
-            // Carrega também dados PF/PJ
-            return response()->json(
-                User::with('pessoaFisica', 'pessoaJuridica')->get()
-            );
-        }
-
-        // Usuário simples só vê a si mesmo
-        return response()->json([
-            $authUser->load('pessoaFisica', 'pessoaJuridica')
-        ]);
+        return response()->json(
+            User::with('pessoaFisica', 'pessoaJuridica')->get()
+        );
     }
 
     /**
-     * CRIAR USUÁRIO (Admin apenas)
-     * Cria também PF ou PJ conforme o tipo
+     * CRIAR USUÁRIO
+     * Apenas administrador pode criar
      */
     public function store(Request $request)
     {
         $this->authorize('create', User::class);
 
-        // Validação base (users)
         $base = $request->validate([
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
             'tipo' => 'required|in:pf,pj',
             'nivel' => 'required|in:admin,simples',
             'status' => 'required|in:ativo,inativo',
+
+            'cep' => 'required|string|size:8',
+            'numero' => 'nullable|string|max:20',
+            'complemento' => 'nullable|string|max:255',
         ]);
 
         return DB::transaction(function () use ($request, $base) {
 
-            // Cria o usuário
-            $user = User::create($base);
+            $cep = preg_replace('/\D/', '', $base['cep']);
 
-            // Se for PF → cria registro em pessoas_fisicas
+            try {
+                $response = Http::retry(3, 300)->timeout(5)
+                    ->get("https://viacep.com.br/ws/{$cep}/json/");
+            } catch (\Throwable $e) {
+                $response = null;
+            }
+
+            $cepData = null;
+
+            // Se deu exception (ou falhou total)
+            if ($response === null) {
+                $cepData = null;
+            } elseif ($response->serverError()) {
+                $cepData = null;
+            } elseif ($response->clientError()) {
+                return response()->json([
+                    'message' => 'Falha ao consultar o ViaCEP.',
+                ], 502);
+            } else {
+                $data = $response->json();
+
+                if (isset($data['erro']) && $data['erro'] === true) {
+                    return response()->json([
+                        'message' => 'CEP não encontrado.',
+                    ], 422);
+                }
+
+                $cepData = $data;
+            }
+
+            $user = User::create([
+                ...$base,
+                'password' => Hash::make($base['password']),
+                'cep' => $cep,
+                'logradouro' => $cepData['logradouro'] ?? null,
+                'bairro' => $cepData['bairro'] ?? null,
+                'cidade' => $cepData['localidade'] ?? null,
+                'estado' => $cepData['uf'] ?? null,
+            ]);
+
             if ($user->tipo === 'pf') {
 
                 $pf = $request->validate([
@@ -73,7 +108,6 @@ class UserController extends Controller
                 ]);
             }
 
-            // Se for PJ → cria registro em pessoas_juridicas
             if ($user->tipo === 'pj') {
 
                 $pj = $request->validate([
@@ -97,7 +131,7 @@ class UserController extends Controller
 
     /**
      * VISUALIZAR UM USUÁRIO
-     * Policy já garante quem pode ver
+     * A Policy define quem pode acessar
      */
     public function show(User $user)
     {
@@ -110,6 +144,8 @@ class UserController extends Controller
 
     /**
      * ATUALIZAR USUÁRIO
+     * Simples → apenas próprio
+     * Admin → qualquer usuário
      */
     public function update(Request $request, User $user)
     {
@@ -119,18 +155,60 @@ class UserController extends Controller
 
         return DB::transaction(function () use ($request, $user, $auth) {
 
-            // TODOS podem alterar email e senha
             $userData = $request->validate([
                 'email' => 'sometimes|email|unique:users,email,' . $user->id,
                 'password' => 'sometimes|min:6',
+
+                'cep' => 'sometimes|string|size:8',
+                'numero' => 'sometimes|nullable|string|max:20',
+                'complemento' => 'sometimes|nullable|string|max:255',
             ]);
 
-            // Tipo nunca pode ser alterado
             unset($userData['tipo']);
 
-            // Apenas ADMIN pode alterar nível e status
-            if ($auth->nivel === 'admin') {
+            if (isset($userData['password'])) {
+                $userData['password'] = Hash::make($userData['password']);
+            }
 
+            // Se vier CEP, consulta ViaCEP
+            if (isset($userData['cep'])) {
+                $cep = preg_replace('/\D/', '', $userData['cep']);
+
+                try {
+                    $response = Http::retry(3, 300)->timeout(5)
+                        ->get("https://viacep.com.br/ws/{$cep}/json/");
+                } catch (\Throwable $e) {
+                    $response = null;
+                }
+
+                if ($response === null || $response->serverError()) {
+                    $userData['cep'] = $cep;
+                    $userData['logradouro'] = null;
+                    $userData['bairro'] = null;
+                    $userData['cidade'] = null;
+                    $userData['estado'] = null;
+                } elseif ($response->clientError()) {
+                    return response()->json([
+                        'message' => 'Falha ao consultar o ViaCEP.',
+                    ], 502);
+                } else {
+                    $cepData = $response->json();
+
+                    if (isset($cepData['erro']) && $cepData['erro'] === true) {
+                        return response()->json([
+                            'message' => 'CEP não encontrado.',
+                        ], 422);
+                    }
+
+                    $userData['cep'] = $cep;
+                    $userData['logradouro'] = $cepData['logradouro'] ?? null;
+                    $userData['bairro'] = $cepData['bairro'] ?? null;
+                    $userData['cidade'] = $cepData['localidade'] ?? null;
+                    $userData['estado'] = $cepData['uf'] ?? null;
+                }
+            }
+
+            if ($auth->nivel === 'admin') {
                 $extra = $request->validate([
                     'nivel' => 'sometimes|in:admin,simples',
                     'status' => 'sometimes|in:ativo,inativo',
@@ -141,7 +219,6 @@ class UserController extends Controller
 
             $user->update($userData);
 
-            // ADMIN pode alterar dados PF/PJ
             if ($auth->nivel === 'admin') {
 
                 if ($user->tipo === 'pf' && $user->pessoaFisica) {
@@ -179,7 +256,8 @@ class UserController extends Controller
     }
 
     /**
-     * DELETAR USUÁRIO (Soft Delete)
+     * DELETAR USUÁRIO
+     * Utiliza Soft Delete
      */
     public function destroy(User $user)
     {
