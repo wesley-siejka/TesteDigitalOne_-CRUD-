@@ -30,6 +30,14 @@ class AuthController extends Controller
 
         session(['api_token' => $res->json('token')]);
 
+        $token = $res->json('token'); // ou o campo certo
+        session(['api_token' => $token]);
+
+        $me = $api->authed()->get('/api/user');
+        if ($me->ok()) {
+            session(['user' => $me->json()]);
+        }
+
         return redirect('/users');
     }
 

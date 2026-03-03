@@ -11,6 +11,8 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use App\Services\ReceitaWsService;
+use App\Support\DocValidator;
 
 class UserController extends Controller
 {
@@ -102,6 +104,14 @@ class UserController extends Controller
                     'nascimento' => 'nullable|date',
                 ]);
 
+                if (isset($pfData['cpf'])) {
+                    $cpf = preg_replace('/\D/', '', $pfData['cpf']);
+                    if (!DocValidator::cpf($cpf)) {
+                        return response()->json(['message' => 'CPF inválido.'], 422);
+                    }
+                    $pfData['cpf'] = $cpf;
+                }
+
                 PessoaFisica::create([
                     'user_id' => $user->id,
                     ...$pf
@@ -115,6 +125,24 @@ class UserController extends Controller
                     'nome_fantasia' => 'required|string|max:255',
                     'cnpj' => 'required|string|unique:pessoas_juridicas,cnpj',
                 ]);
+
+                if (isset($pjData['cnpj'])) {
+                    $cnpj = preg_replace('/\D/', '', $pjData['cnpj']);
+                    if (!DocValidator::cnpj($cnpj)) {
+                        return response()->json(['message' => 'CNPJ inválido.'], 422);
+                    }
+
+                    $receita = app(ReceitaWsService::class)->consultar($cnpj);
+
+                    if (!$receita['ok']) {
+                        if (($receita['error'] ?? '') === 'indisponivel') {
+                            return response()->json(['message' => 'ReceitaWS indisponível. Tente novamente.'], 503);
+                        }
+                        return response()->json(['message' => $receita['message'] ?? 'CNPJ não encontrado na ReceitaWS.'], 422);
+                    }
+
+                    $pjData['cnpj'] = $cnpj;
+                }
 
                 PessoaJuridica::create([
                     'user_id' => $user->id,
@@ -229,6 +257,15 @@ class UserController extends Controller
                         'nascimento' => 'sometimes|date',
                     ]);
 
+                    $cpf = preg_replace('/\D/', '', $pfData['cpf']);
+
+                    if (!DocValidator::cpf($cpf)) {
+                        return response()->json(['message' => 'CPF inválido.'], 422);
+                    }
+
+                    $pf['cpf'] = $cpf;
+
+
                     if (!empty($pfData)) {
                         $user->pessoaFisica->update($pfData);
                     }
@@ -241,6 +278,27 @@ class UserController extends Controller
                         'nome_fantasia' => 'sometimes|string|max:255',
                         'cnpj' => 'sometimes|string|unique:pessoas_juridicas,cnpj,' . $user->pessoaJuridica->id,
                     ]);
+
+                    $cnpj = preg_replace('/\D/', '', $pjData['cnpj']);
+
+                    if (!DocValidator::cnpj($cnpj)) {
+                        return response()->json(['message' => 'CNPJ inválido.'], 422);
+                    }
+
+                    // Consulta ReceitaWS
+                    $receita = app(ReceitaWsService::class)->consultar($cnpj);
+
+                    if (!$receita['ok']) {
+                        // aqui você escolhe a regra:
+                        // se a Receita cair, eu recomendo retornar 503 (mais “validação real”)
+                        if (($receita['error'] ?? '') === 'indisponivel') {
+                            return response()->json(['message' => 'ReceitaWS indisponível. Tente novamente.'], 503);
+                        }
+
+                        return response()->json(['message' => $receita['message'] ?? 'CNPJ não encontrado na ReceitaWS.'], 422);
+                    }
+
+                    $pj['cnpj'] = $cnpj;
 
                     if (!empty($pjData)) {
                         $user->pessoaJuridica->update($pjData);
