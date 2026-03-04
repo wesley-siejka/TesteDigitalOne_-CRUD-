@@ -88,22 +88,22 @@ https://github.com/wesley-siejka/TesteDigitalOne_-CRUD-.git
 
 # Rodar o Backend (API)
 
-Entrar na pasta: cd backend.
-Instalar dependências: composer install.
-Copiar arquivo de ambiente: copy .env.example .env
-Configurar o banco de dados no arquivo `.env`
-Rodar migrations: php artisan migrate
-Rodar as seeders: php artisan seed
-Iniciar servidor: php artisan serve --port=8000 (preferencia na porta: 8000)
+- Entrar na pasta: cd backend
+- Instalar dependências: composer install
+- Copiar arquivo de ambiente: copy .env.example .env
+- Configurar o banco de dados no arquivo `.env`
+- Rodar migrations: php artisan migrate
+- Rodar as seeders: php artisan seed
+- Iniciar servidor: php artisan serve --port=8000 (preferencia na porta: 8000)
 
 ---
 
 # Rodar o Frontend
 
-Entrar na pasta: cd frontend
-Instalar dependências: composer install
-Copiar arquivo de ambiente: copy .env.example .env
-Iniciar servidor: php artisan serve --port=8001
+- Entrar na pasta: cd frontend
+- Instalar dependências: composer install
+- Copiar arquivo de ambiente: copy .env.example .env
+- Iniciar servidor: php artisan serve --port=8001
 
 ---
 
