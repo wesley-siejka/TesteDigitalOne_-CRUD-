@@ -10,6 +10,11 @@ class UserController extends Controller
 {
     public function index(ApiClient $api)
     {
+        // BLOQUEIA USUÁRIO SIMPLES
+        if (data_get(session('user'), 'nivel') !== 'admin') {
+            return redirect('/me');
+        }
+
         $res = $api->authed()->get('/api/users');
 
         if ($res->failed()) {
@@ -190,6 +195,15 @@ class UserController extends Controller
             'status' => ['nullable', 'in:ativo,inativo'],
         ]);
 
+        $authId = data_get(session('user'), 'id');
+        $isAdmin = data_get(session('user'), 'nivel') === 'admin';
+        $isSelf = ($authId == $id);
+
+        // Só admin e não-self pode alterar nivel/status
+        if (!$isAdmin || $isSelf) {
+            unset($data['nivel'], $data['status']);
+        }
+
         // se não for admin, não deixa enviar nivel/status (mesmo se alguém tentar pelo devtools)
         if (data_get(session('user'), 'nivel') !== 'admin') {
             unset($data['nivel'], $data['status']);
@@ -239,5 +253,116 @@ class UserController extends Controller
         }
 
         return back()->with('success', 'Senha resetada para 123456');
+    }
+
+    public function passwordForm(int $id, ApiClient $api)
+    {
+        $authId = data_get(session('user'), 'id');
+        $isAdmin = data_get(session('user'), 'nivel') === 'admin';
+        $isSelf = ($authId == $id);
+
+        // se não for admin e tentar mexer em outro usuário → bloqueia
+        if (!$isAdmin && !$isSelf) {
+            abort(403, 'Sem permissão.');
+        }
+
+        // pega o usuário só pra mostrar nome/id na tela
+        $u = $api->authed()->get("/api/users/{$id}");
+        if ($u->failed()) abort(500, 'Erro ao carregar usuário.');
+
+        // admin resetando OUTRO: modo admin
+        // qualquer um resetando a PRÓPRIA: modo self (inclusive admin)
+        $mode = ($isAdmin && !$isSelf) ? 'admin' : 'self';
+
+        return view('users.password', [
+            'user' => $u->json(),
+            'mode' => $mode,
+        ]);
+    }
+
+    public function passwordUpdate(int $id, Request $request, ApiClient $api)
+    {
+        // dd($request->all());
+
+        $authId = data_get(session('user'), 'id');
+        $isAdmin = data_get(session('user'), 'nivel') === 'admin';
+        $isSelf = ($authId == $id);
+
+        if (!$isAdmin && !$isSelf) {
+            abort(403, 'Sem permissão.');
+        }
+
+        // admin resetando senha de OUTRO usuário
+        if ($isAdmin && !$isSelf) {
+            $data = $request->validate([
+                'admin_password' => ['required'],
+            ]);
+
+            $res = $api->authed()->post("/api/users/{$id}/reset-password", $data);
+
+            if ($res->status() === 422) {
+                return back()->withErrors($res->json('errors') ?? ['erro' => $res->json('message')])->withInput();
+            }
+            if ($res->failed()) {
+                return back()->withErrors(['erro' => $res->json('message') ?? 'Erro ao resetar senha'])->withInput();
+            }
+
+            return redirect("/users/{$id}/edit")->with('success', 'Senha resetada para 123456');
+        }
+
+        // qualquer um trocando a PRÓPRIA senha (inclusive admin)
+        $data = $request->validate([
+            'current_password' => ['required'],
+            'password' => ['required', 'min:6', 'confirmed'],
+            'password_confirmation' => ['required'],
+        ]);
+
+        // endpoint do próprio user
+        $res = $api->authed()->put("/api/me/password", $data);
+
+        if ($res->status() === 422) {
+            return back()->withErrors($res->json('errors') ?? ['erro' => $res->json('message')])->withInput();
+        }
+        if ($res->failed()) {
+            return back()->withErrors(['erro' => $res->json('message') ?? 'Erro ao alterar senha'])->withInput();
+        }
+
+        return redirect("/users/{$id}/edit")->with('success', 'Senha alterada com sucesso');
+    }
+
+    public function me(ApiClient $api)
+    {
+        // pega o usuário logado
+        $me = $api->authed()->get('/api/user');
+        if ($me->failed()) abort(500, 'Erro ao carregar seu usuário.');
+
+        $id = data_get($me->json(), 'id');
+
+        // agora pega completo (com pessoaFisica/pessoaJuridica)
+        $res = $api->authed()->get("/api/users/{$id}");
+        if ($res->failed()) abort(500, 'Erro ao carregar seu usuário.');
+
+        $user = $res->json();
+        return view('users.show', compact('user'));
+    }
+
+    public function destroy(int $id, ApiClient $api)
+    {
+
+        $authId = data_get(session('user'), 'id');
+
+        if ($authId == $id) {
+            return back()->withErrors(['erro' => 'Você não pode excluir sua própria conta.']);
+        }
+
+        $res = $api->authed()->delete("/api/users/{$id}");
+
+        if ($res->failed()) {
+            return back()->withErrors([
+                'erro' => $res->json('message') ?? 'Erro ao excluir usuário'
+            ]);
+        }
+
+        return redirect('/users')->with('success', 'Usuário excluído com sucesso');
     }
 }

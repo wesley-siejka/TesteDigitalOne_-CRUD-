@@ -19,4 +19,8 @@ Route::middleware('auth.front')->group(function () {
     Route::get('/users/{id}/edit', [UserController::class, 'edit']);
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::post('/users/{id}/reset-password', [UserController::class, 'resetPassword']);
+    Route::get('/users/{id}/password', [UserController::class, 'passwordForm']);
+    Route::post('/users/{id}/password', [UserController::class, 'passwordUpdate']);
+    Route::get('/me', [UserController::class, 'me']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 });

@@ -14,6 +14,22 @@
             Nenhum usuário encontrado.
         </div>
     @else
+        @if (session('success'))
+            <div class="alert alert-success">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         <table class="table table-bordered table-striped">
             <thead>
                 <tr>
@@ -48,7 +64,21 @@
                         <td>{{ $user['cidade'] ?? '-' }}</td>
                         <td>{{ $user['estado'] ?? '-' }}</td>
                         <td>
-                            <a class="btn btn-sm btn-outline-primary" href="/users/{{ $user['id'] }}/edit">Editar</a>
+                            <div class="d-flex gap-2">
+                                <a href="/users/{{ $user['id'] }}/edit" class="btn btn-sm btn-primary"
+                                    style="min-width: 80px;">
+                                    Editar
+                                </a>
+
+                                <form method="POST" action="/users/{{ $user['id'] }}" class="m-0"
+                                    onsubmit="return confirm('Deseja realmente excluir este usuário?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-sm btn-danger" style="min-width: 80px;">
+                                        Excluir
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @endforeach

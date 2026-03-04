@@ -38,12 +38,17 @@ class AuthController extends Controller
             session(['user' => $me->json()]);
         }
 
-        return redirect('/users');
+        return data_get(session('user'), 'nivel') === 'admin'
+            ? redirect('/users')
+            : redirect('/me');
     }
 
     public function logout()
     {
-        session()->forget('api_token');
-        return redirect()->route('login');
+        session()->forget(['token', 'user']);
+        session()->invalidate();
+        session()->regenerateToken();
+
+        return redirect('/login');
     }
 }

@@ -5,9 +5,13 @@
 @section('content')
 
     @php
-        $isAdmin = data_get(session('user'), 'nivel') === 'admin';
-        $nivelAtual = $user['nivel'] ?? '';
-        $statusAtual = $user['status'] ?? '';
+        $authId = data_get(session('user'), 'id');
+        $authNivel = data_get(session('user'), 'nivel');
+        $isAdmin = $authNivel === 'admin';
+        $isSelf = $authId == ($user['id'] ?? null);
+
+        // Pode alterar nivel/status somente se for admin E não estiver editando a si mesmo
+        $canEditLevelStatus = $isAdmin && !$isSelf;
     @endphp
 
     @if (session('success'))
@@ -20,21 +24,9 @@
         <h3 class="mb-0">Editar Usuário #{{ $user['id'] }}</h3>
 
         <div class="d-flex gap-2">
-            @if($isAdmin)
-                <form method="POST" action="/users/{{ $user['id'] }}/reset-password">
-                    @csrf
-
-                    <div class="input-group">
-                        <input type="password" name="admin_password" class="form-control" placeholder="Senha do admin"
-                            required>
-
-                        <button class="btn btn-warning" onclick="return confirm('Resetar senha do usuário para 123456?')">
-                            Resetar Senha
-                        </button>
-                    </div>
-
-                </form>
-            @endif
+            <a href="/users/{{ $user['id'] }}/password" class="btn btn-warning">
+                Redefinir senha
+            </a>
 
         </div>
     </div>
@@ -76,26 +68,24 @@
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Nível</label>
 
-                        <select class="form-select" name="nivel" @disabled(!$isAdmin)>
-                            <option value="simples" @selected(old('nivel', $nivelAtual) === 'simples')>Simples</option>
-                            <option value="admin" @selected(old('nivel', $nivelAtual) === 'admin')>Admin</option>
+                        <select class="form-select" name="nivel" @disabled(!$canEditLevelStatus)>
+                            <option value="simples" @selected(old('nivel', $user['nivel'] ?? '') === 'simples')>Simples</option>
+                            <option value="admin" @selected(old('nivel', $user['nivel'] ?? '') === 'admin')>Admin</option>
                         </select>
-
-                        @if (!$isAdmin)
-                            <div class="form-text">Apenas admin pode alterar.</div>
+                        @if (!$canEditLevelStatus)
+                            <div class="form-text">Você não pode alterar nível neste caso.</div>
                         @endif
                     </div>
 
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Status</label>
 
-                        <select class="form-select" name="status" @disabled(!$isAdmin)>
-                            <option value="ativo" @selected(old('status', $statusAtual) === 'ativo')>Ativo</option>
-                            <option value="inativo" @selected(old('status', $statusAtual) === 'inativo')>Inativo</option>
+                        <select class="form-select" name="status" @disabled(!$canEditLevelStatus)>
+                            <option value="ativo" @selected(old('status', $user['status'] ?? '') === 'ativo')>Ativo</option>
+                            <option value="inativo" @selected(old('status', $user['status'] ?? '') === 'inativo')>Inativo</option>
                         </select>
-
-                        @if (!$isAdmin)
-                            <div class="form-text">Apenas admin pode alterar.</div>
+                        @if (!$canEditLevelStatus)
+                            <div class="form-text">Você não pode alterar status neste caso.</div>
                         @endif
                     </div>
                 </div>
@@ -115,8 +105,8 @@
 
                     <div class="col-md-6 mb-3">
                         <label class="form-label">CPF</label>
-                        <input class="form-control" name="cpf"
-                            value="{{ old('cpf', $user['pessoa_fisica']['cpf'] ?? '') }}">
+                        <input class="form-control" name="cpf" inputmode="numeric" maxlength="14"
+                            placeholder="000.000.000-00" value="{{ old('cpf', $user['pessoa_fisica']['cpf'] ?? '') }}">
                     </div>
 
                     <div class="col-md-4 mb-3">
@@ -147,7 +137,8 @@
 
                     <div class="col-md-4 mb-3">
                         <label class="form-label">CNPJ</label>
-                        <input class="form-control" name="cnpj"
+                        <input class="form-control" name="cnpj" inputmode="numeric" maxlength="18"
+                            placeholder="00.000.000/0000-00"
                             value="{{ old('cnpj', $user['pessoa_juridica']['cnpj'] ?? '') }}">
                     </div>
                 </div>
@@ -161,7 +152,8 @@
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         <label class="form-label">CEP</label>
-                        <input class="form-control" name="cep" value="{{ old('cep', $user['cep'] ?? '') }}">
+                        <input class="form-control" name="cep" inputmode="numeric" maxlength="9"
+                            placeholder="00000-000" value="{{ old('cep', $user['cep'] ?? '') }}">
                     </div>
 
                     <div class="col-md-4 mb-3">
@@ -210,8 +202,60 @@
             const pf = document.getElementById('bloco-pf');
             const pj = document.getElementById('bloco-pj');
 
+
+
             pf.style.display = (tipo === 'pf') ? '' : 'none';
             pj.style.display = (tipo === 'pj') ? '' : 'none';
         })();
+
+        const onlyDigits = (v) => (v || '').replace(/\D/g, '');
+
+        function maskCEP(v) {
+            v = onlyDigits(v).slice(0, 8);
+            return v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v;
+        }
+
+        function maskCPF(v) {
+            v = onlyDigits(v).slice(0, 11);
+            if (v.length <= 3) return v;
+            if (v.length <= 6) return v.slice(0, 3) + '.' + v.slice(3);
+            if (v.length <= 9) return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
+            return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-' + v.slice(9);
+        }
+
+        function maskCNPJ(v) {
+            v = onlyDigits(v).slice(0, 14);
+            if (v.length <= 2) return v;
+            if (v.length <= 5) return v.slice(0, 2) + '.' + v.slice(2);
+            if (v.length <= 8) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5);
+            if (v.length <= 12) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8);
+            return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8, 12) + '-' + v.slice(12);
+        }
+
+        const cepInput = document.querySelector('input[name="cep"]');
+        const cpfInput = document.querySelector('input[name="cpf"]');
+        const cnpjInput = document.querySelector('input[name="cnpj"]');
+
+        if (cepInput && cepInput.value) cepInput.value = maskCEP(cepInput.value);
+        if (cpfInput && cpfInput.value) cpfInput.value = maskCPF(cpfInput.value);
+        if (cnpjInput && cnpjInput.value) cnpjInput.value = maskCNPJ(cnpjInput.value);
+
+        if (cepInput) {
+            cepInput.addEventListener('input', () => {
+                cepInput.value = maskCEP(cepInput.value);
+            });
+        }
+
+        if (cpfInput) {
+            cpfInput.addEventListener('input', () => {
+                cpfInput.value = maskCPF(cpfInput.value);
+            });
+        }
+
+        if (cnpjInput) {
+            cnpjInput.addEventListener('input', () => {
+                cnpjInput.value = maskCNPJ(cnpjInput.value);
+            });
+        }
     </script>
 @endsection

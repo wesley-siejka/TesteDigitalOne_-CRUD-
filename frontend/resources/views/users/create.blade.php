@@ -164,6 +164,24 @@
                         @enderror
                     </div>
 
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Número</label>
+                        <input class="form-control @error('numero') is-invalid @enderror" name="numero"
+                            value="{{ old('numero') }}">
+                        @error('numero')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Complemento</label>
+                        <input class="form-control @error('complemento') is-invalid @enderror" name="complemento"
+                            value="{{ old('complemento') }}">
+                        @error('complemento')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
                     <div class="row mt-2">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Logradouro</label>
@@ -192,24 +210,6 @@
                         <div class="col-md-4 mb-3 d-flex align-items-end">
                             <div id="cep-status" class="small text-muted"></div>
                         </div>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Número</label>
-                        <input class="form-control @error('numero') is-invalid @enderror" name="numero"
-                            value="{{ old('numero') }}">
-                        @error('numero')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Complemento</label>
-                        <input class="form-control @error('complemento') is-invalid @enderror" name="complemento"
-                            value="{{ old('complemento') }}">
-                        @error('complemento')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
                     </div>
                 </div>
 
