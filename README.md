@@ -88,8 +88,8 @@ https://github.com/wesley-siejka/TesteDigitalOne_-CRUD-.git
 
 # Rodar o Backend (API)
 
-Entrar na pasta: cd backend
-Instalar dependências: composer install
+Entrar na pasta: cd backend.
+Instalar dependências: composer install.
 Copiar arquivo de ambiente: copy .env.example .env
 Configurar o banco de dados no arquivo `.env`
 Rodar migrations: php artisan migrate
