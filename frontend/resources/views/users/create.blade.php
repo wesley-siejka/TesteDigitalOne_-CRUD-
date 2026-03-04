@@ -5,7 +5,6 @@
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Novo Usuário</h3>
-        <a href="/users" class="btn btn-outline-secondary">Voltar</a>
     </div>
 
     @if ($errors->any())

@@ -171,19 +171,30 @@
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Logradouro</label>
-                        <input class="form-control" value="{{ $user['logradouro'] ?? '' }}" readonly>
+                        <input class="form-control" name="logradouro"
+                            value="{{ old('logradouro', $user['logradouro'] ?? '') }}" readonly>
                     </div>
+
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Bairro</label>
-                        <input class="form-control" value="{{ $user['bairro'] ?? '' }}" readonly>
+                        <input class="form-control" name="bairro" value="{{ old('bairro', $user['bairro'] ?? '') }}"
+                            readonly>
                     </div>
+
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Cidade</label>
-                        <input class="form-control" value="{{ $user['cidade'] ?? '' }}" readonly>
+                        <input class="form-control" name="cidade" value="{{ old('cidade', $user['cidade'] ?? '') }}"
+                            readonly>
                     </div>
+
                     <div class="col-md-2 mb-3">
                         <label class="form-label">Estado</label>
-                        <input class="form-control" value="{{ $user['estado'] ?? '' }}" readonly>
+                        <input class="form-control" name="estado" value="{{ old('estado', $user['estado'] ?? '') }}"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div id="cep-status" class="small text-muted"></div>
                     </div>
                 </div>
 
@@ -198,64 +209,147 @@
 
     <script>
         (function() {
+            // ====== PF/PJ toggle (edit) ======
             const tipo = @json($user['tipo'] ?? 'pf');
             const pf = document.getElementById('bloco-pf');
             const pj = document.getElementById('bloco-pj');
+            if (pf) pf.style.display = (tipo === 'pf') ? '' : 'none';
+            if (pj) pj.style.display = (tipo === 'pj') ? '' : 'none';
 
+            // ====== helpers ======
+            const onlyDigits = (v) => (v || '').replace(/\D/g, '');
 
+            // ====== máscaras ======
+            function maskCEP(v) {
+                v = onlyDigits(v).slice(0, 8);
+                return v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v;
+            }
 
-            pf.style.display = (tipo === 'pf') ? '' : 'none';
-            pj.style.display = (tipo === 'pj') ? '' : 'none';
+            function maskCPF(v) {
+                v = onlyDigits(v).slice(0, 11);
+                if (v.length <= 3) return v;
+                if (v.length <= 6) return v.slice(0, 3) + '.' + v.slice(3);
+                if (v.length <= 9) return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
+                return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-' + v.slice(9);
+            }
+
+            function maskCNPJ(v) {
+                v = onlyDigits(v).slice(0, 14);
+                if (v.length <= 2) return v;
+                if (v.length <= 5) return v.slice(0, 2) + '.' + v.slice(2);
+                if (v.length <= 8) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5);
+                if (v.length <= 12) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8);
+                return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8, 12) + '-' + v.slice(
+                    12);
+            }
+
+            const cepInput = document.querySelector('input[name="cep"]');
+            const cpfInput = document.querySelector('input[name="cpf"]');
+            const cnpjInput = document.querySelector('input[name="cnpj"]');
+
+            // aplica máscara no load
+            if (cepInput && cepInput.value) cepInput.value = maskCEP(cepInput.value);
+            if (cpfInput && cpfInput.value) cpfInput.value = maskCPF(cpfInput.value);
+            if (cnpjInput && cnpjInput.value) cnpjInput.value = maskCNPJ(cnpjInput.value);
+
+            // aplica máscara ao digitar
+            if (cepInput) cepInput.addEventListener('input', () => cepInput.value = maskCEP(cepInput.value));
+            if (cpfInput) cpfInput.addEventListener('input', () => cpfInput.value = maskCPF(cpfInput.value));
+            if (cnpjInput) cnpjInput.addEventListener('input', () => cnpjInput.value = maskCNPJ(cnpjInput.value));
+
+            // ====== BUSCA CEP (igual create) ======
+            const logradouro = document.querySelector('input[name="logradouro"]');
+            const bairro = document.querySelector('input[name="bairro"]');
+            const cidade = document.querySelector('input[name="cidade"]');
+            const estado = document.querySelector('input[name="estado"]');
+            const statusEl = document.getElementById('cep-status');
+
+            let lastCep = '';
+            let timer = null;
+
+            function setStatus(msg) {
+                if (statusEl) statusEl.innerText = msg;
+            }
+
+            function clearAddress() {
+                if (logradouro) logradouro.value = '';
+                if (bairro) bairro.value = '';
+                if (cidade) cidade.value = '';
+                if (estado) estado.value = '';
+            }
+
+            async function fetchCep(cep) {
+                setStatus('Consultando CEP...');
+                try {
+                    const res = await fetch(`/cep/${cep}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+                    const data = await res.json().catch(() => ({}));
+
+                    if (!res.ok) {
+                        clearAddress();
+                        setStatus(data.message ?? 'Falha ao consultar CEP');
+                        return;
+                    }
+
+                    // "erro" do ViaCEP significa CEP inexistente
+                    if (data.erro === true) {
+                        clearAddress();
+                        setStatus('CEP não encontrado');
+                        return;
+                    }
+
+                    // considera "válido" se vier pelo menos UF e (cidade/localidade)
+                    const uf = (data.uf ?? data.estado ?? '').trim();
+                    const city = (data.localidade ?? data.cidade ?? '').trim();
+
+                    if (!uf || !city) {
+                        clearAddress();
+                        setStatus('CEP inválido ou incompleto');
+                        return;
+                    }
+
+                    logradouro.value = (data.logradouro ?? '').trim();
+                    bairro.value = (data.bairro ?? '').trim();
+                    cidade.value = (data.localidade ?? data.cidade ?? '').trim();
+                    estado.value = (data.uf ?? data.estado ?? '').trim();
+
+                    setStatus('CEP encontrado ✅');
+                } catch (e) {
+                    clearAddress();
+                    setStatus('Falha ao consultar CEP');
+                }
+            }
+
+            function onCepChange() {
+                if (!cepInput) return;
+
+                const cep = onlyDigits(cepInput.value).slice(0, 8);
+
+                if (cep.length !== 8) {
+                    setStatus('-');
+                    return;
+                }
+                if (cep === lastCep) return;
+
+                lastCep = cep;
+
+                if (timer) clearTimeout(timer);
+                timer = setTimeout(() => fetchCep(cep), 350);
+            }
+
+            if (cepInput) {
+                cepInput.addEventListener('input', onCepChange);
+                cepInput.addEventListener('blur', onCepChange);
+
+                // opcional: se já vier preenchido com 8 dígitos, já busca
+                const initial = onlyDigits(cepInput.value);
+                if (initial.length === 8) {
+                    onCepChange();
+                }
+            }
         })();
-
-        const onlyDigits = (v) => (v || '').replace(/\D/g, '');
-
-        function maskCEP(v) {
-            v = onlyDigits(v).slice(0, 8);
-            return v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v;
-        }
-
-        function maskCPF(v) {
-            v = onlyDigits(v).slice(0, 11);
-            if (v.length <= 3) return v;
-            if (v.length <= 6) return v.slice(0, 3) + '.' + v.slice(3);
-            if (v.length <= 9) return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
-            return v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-' + v.slice(9);
-        }
-
-        function maskCNPJ(v) {
-            v = onlyDigits(v).slice(0, 14);
-            if (v.length <= 2) return v;
-            if (v.length <= 5) return v.slice(0, 2) + '.' + v.slice(2);
-            if (v.length <= 8) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5);
-            if (v.length <= 12) return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8);
-            return v.slice(0, 2) + '.' + v.slice(2, 5) + '.' + v.slice(5, 8) + '/' + v.slice(8, 12) + '-' + v.slice(12);
-        }
-
-        const cepInput = document.querySelector('input[name="cep"]');
-        const cpfInput = document.querySelector('input[name="cpf"]');
-        const cnpjInput = document.querySelector('input[name="cnpj"]');
-
-        if (cepInput && cepInput.value) cepInput.value = maskCEP(cepInput.value);
-        if (cpfInput && cpfInput.value) cpfInput.value = maskCPF(cpfInput.value);
-        if (cnpjInput && cnpjInput.value) cnpjInput.value = maskCNPJ(cnpjInput.value);
-
-        if (cepInput) {
-            cepInput.addEventListener('input', () => {
-                cepInput.value = maskCEP(cepInput.value);
-            });
-        }
-
-        if (cpfInput) {
-            cpfInput.addEventListener('input', () => {
-                cpfInput.value = maskCPF(cpfInput.value);
-            });
-        }
-
-        if (cnpjInput) {
-            cnpjInput.addEventListener('input', () => {
-                cnpjInput.value = maskCNPJ(cnpjInput.value);
-            });
-        }
     </script>
 @endsection

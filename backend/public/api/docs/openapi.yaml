@@ -1,0 +1,291 @@
+openapi: 3.0.3
+info:
+  title: 'Laravel API Documentation'
+  description: ''
+  version: 1.0.0
+servers:
+  -
+    url: 'http://localhost'
+tags:
+  -
+    name: Endpoints
+    description: ''
+paths:
+  /api/user:
+    get:
+      summary: ''
+      operationId: getApiUser
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Endpoints
+      security: []
+  /api/login:
+    post:
+      summary: ''
+      operationId: postApiLogin
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: 'O campo value deve ser um e-mail válido.'
+                  example: qkunze@example.com
+                password:
+                  type: string
+                  description: ''
+                  example: consequatur
+              required:
+                - email
+                - password
+      security: []
+  /api/users:
+    get:
+      summary: "LISTAR USUÁRIOS\nAdmin → todos\nSimples → apenas ele mesmo"
+      operationId: lISTARUSURIOSAdminTodosSimplesApenasEleMesmo
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Endpoints
+      security: []
+    post:
+      summary: "CRIAR USUÁRIO\nApenas administrador pode criar"
+      operationId: cRIARUSURIOApenasAdministradorPodeCriar
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: 'O campo value deve ser um e-mail válido.'
+                  example: qkunze@example.com
+                password:
+                  type: string
+                  description: 'O campo value deve ter no mínimo 6 caracteres.'
+                  example: 'Z5ij-e/dl4m{o,'
+                tipo:
+                  type: string
+                  description: ''
+                  example: pf
+                  enum:
+                    - pf
+                    - pj
+                nivel:
+                  type: string
+                  description: ''
+                  example: admin
+                  enum:
+                    - admin
+                    - simples
+                status:
+                  type: string
+                  description: ''
+                  example: ativo
+                  enum:
+                    - ativo
+                    - inativo
+                cep:
+                  type: string
+                  description: 'O campo value deve ter 8 caracteres.'
+                  example: dqamniih
+                numero:
+                  type: string
+                  description: 'O campo value deve ter no máximo 20 caracteres.'
+                  example: fqcoynlazghdtqtqx
+                  nullable: true
+                complemento:
+                  type: string
+                  description: 'O campo value deve ter no máximo 255 caracteres.'
+                  example: bajwbpilpmufinllwloau
+                  nullable: true
+              required:
+                - email
+                - password
+                - tipo
+                - nivel
+                - status
+                - cep
+      security: []
+  '/api/users/{user_id}':
+    get:
+      summary: "VISUALIZAR UM USUÁRIO\nA Policy define quem pode acessar"
+      operationId: vISUALIZARUMUSURIOAPolicyDefineQuemPodeAcessar
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Endpoints
+      security: []
+    put:
+      summary: "ATUALIZAR USUÁRIO\nSimples → apenas próprio\nAdmin → qualquer usuário"
+      operationId: aTUALIZARUSURIOSimplesApenasPrprioAdminQualquerUsurio
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      security: []
+    delete:
+      summary: "DELETAR USUÁRIO\nUtiliza Soft Delete"
+      operationId: dELETARUSURIOUtilizaSoftDelete
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      security: []
+    parameters:
+      -
+        in: path
+        name: user_id
+        description: 'The ID of the user.'
+        example: 1
+        required: true
+        schema:
+          type: integer
+  /api/me/password:
+    put:
+      summary: 'Usuário logado altera a própria senha.'
+      operationId: usurioLogadoAlteraAPrpriaSenha
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                current_password:
+                  type: string
+                  description: ''
+                  example: consequatur
+                password:
+                  type: string
+                  description: 'O campo value deve ter no mínimo 6 caracteres.'
+                  example: '[2UZ5ij-e/dl4'
+              required:
+                - current_password
+                - password
+      security: []
+  '/api/users/{user_id}/reset-password':
+    post:
+      summary: 'Admin reseta a senha de um usuário.'
+      operationId: adminResetaASenhaDeUmUsurio
+      description: ''
+      parameters: []
+      responses: {  }
+      tags:
+        - Endpoints
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                admin_password:
+                  type: string
+                  description: ''
+                  example: consequatur
+              required:
+                - admin_password
+      security: []
+    parameters:
+      -
+        in: path
+        name: user_id
+        description: 'The ID of the user.'
+        example: 1
+        required: true
+        schema:
+          type: integer
+  '/api/cep/{cep}':
+    get:
+      summary: 'Consulta endereço pelo CEP usando ViaCEP.'
+      operationId: consultaEndereoPeloCEPUsandoViaCEP
+      description: ''
+      parameters: []
+      responses:
+        401:
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  message: Unauthenticated.
+                properties:
+                  message:
+                    type: string
+                    example: Unauthenticated.
+      tags:
+        - Endpoints
+      security: []
+    parameters:
+      -
+        in: path
+        name: cep
+        description: 'The cep.'
+        example: consequatur
+        required: true
+        schema:
+          type: string
